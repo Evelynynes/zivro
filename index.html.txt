@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0">
+<title>오늘 밤, 집으로</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:#000;
+  font-family:-apple-system,'Noto Sans KR',sans-serif;
+  overflow:hidden;user-select:none;touch-action:none;color:#e0e8e0;}
+
+.screen{display:none;position:fixed;inset:0;flex-direction:column;
+align-items:center;justify-content:center;padding:32px;gap:22px;}
+.screen.on{display:flex;}
+
+/* ── TITLE ── */
+#sTitle{
+background:radial-gradient(ellipse at 50% 60%, #0a1a10 0%, #000 70%);
+}
+.title-tiny{font-size:11px;letter-spacing:5px;color:#3a5a3a;text-transform:uppercase;}
+.title-big{
+font-size:clamp(38px,10vw,72px);font-weight:300;line-height:1.1;
+text-align:center;color:#c8dcc8;letter-spacing:-1px;
+}
+.title-big em{font-style:normal;font-weight:700;color:#e8f4e8;}
+.title-desc{
+font-size:14px;color:#4a6a4a;text-align:center;
+line-height:2;max-width:260px;
+}
+.title-cta{
+margin-top:8px;font-size:13px;color:#3a5a3a;
+animation:blink 2.2s ease-in-out infinite;
+}
+@keyframes blink{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* ── GAME ── */
+#sGame{padding:0;background:#000;}
+#cv{display:block;touch-action:none;}
+
+/* minimal hud */
+#hud{position:fixed;top:0;left:0;right:0;
+display:flex;justify-content:space-between;align-items:center;
+padding:16px 20px;pointer-events:none;z-index:20;}
+#hudLeft{font-size:11px;color:#4a6a4a;letter-spacing:1px;}
+#hudRight{font-size:11px;color:#4a6a4a;letter-spacing:1px;font-weight:700;}
+#liveDots{display:flex;gap:6px;align-items:center;}
+.ldot{width:6px;height:6px;border-radius:50%;background:#4a8a4a;transition:all .3s;}
+.ldot.gone{background:#2a2a2a;}
+
+/* sense bars */
+#senseBox{position:fixed;bottom:195px;left:0;right:0;
+padding:10px 24px;background:linear-gradient(to top, rgba(0,0,0,0.4), transparent);
+display:flex;gap:14px;pointer-events:none;z-index:20;}
+.sb{flex:1;}
+.sl{font-size:9px;letter-spacing:2px;color:#5a6a5a;text-transform:uppercase;margin-bottom:4px;font-weight:700;}
+.st{height:3px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden;}
+.sf{height:100%;border-radius:2px;transition:width .08s, background .15s;}
+#sfH{background:#5a4010;}
+#sfS{background:#3a1a5a;}
+#sfV{background:#103a5a;}
+
+/* dpad — 4방향 모바일 조작 패드 */
+#dpad{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+display:grid;grid-template-columns:58px 58px 58px;grid-template-rows:52px 52px;
+gap:8px;z-index:20;touch-action:none;}
+.db{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+border-radius:12px;font-size:20px;display:flex;align-items:center;justify-content:center;
+color:rgba(255,255,255,.4);cursor:pointer;-webkit-tap-highlight-color:transparent;
+user-select:none;-webkit-user-select:none;}
+.db:active{background:rgba(255,255,255,.15);color:rgba(255,255,255,.7);}
+#dU{grid-column:2;grid-row:1;}
+#dL{grid-column:1;grid-row:2;}
+#dD{grid-column:2;grid-row:2;}
+#dR{grid-column:3;grid-row:2;}
+
+/* flash overlay */
+#flash{position:fixed;inset:0;pointer-events:none;z-index:50;opacity:0;}
+
+/* ── DEATH & SURVIVE SCREEN ── */
+#sDeath, #sSurvive{background:#000;text-align:center;gap:0;overflow-y:auto;padding:40px 24px;}
+.death-reveal, .sv-reveal{
+display:flex;flex-direction:column;align-items:center;gap:20px;
+animation:fadeUp .8s ease forwards;max-width:340px;margin:0 auto;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+.d-label, .sv-label{font-size:10px;letter-spacing:5px;color:#6a3a3a;text-transform:uppercase;margin-bottom:4px;}
+.sv-label{color:#3a6a3a;}
+.d-title-roadkill{
+font-size:clamp(36px,9vw,56px);font-weight:700;
+color:#9a2a2a;letter-spacing:-1px;line-height:1;
+}
+.sv-title{font-size:clamp(32px,8vw,48px);font-weight:300;color:#6a9a6a;line-height:1.2;}
+.sv-title em{font-weight:700;color:#a0d4a0;font-style:normal;}
+
+.d-animal-reveal, .sv-reveal-box{
+display:flex;align-items:center;gap:14px;width:100%;
+background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+border-radius:12px;padding:14px 20px;
+}
+.sv-reveal-box{background:rgba(64,255,128,.02);border:1px solid rgba(64,255,128,.08);}
+.d-animal-em{font-size:36px;}
+.d-animal-info{text-align:left;}
+.d-animal-name{font-size:15px;font-weight:700;color:#c8dcc8;}
+.d-animal-cause{font-size:12px;color:#6a8a6a;margin-top:2px;}
+
+.d-poem, .sv-poem{
+font-size:14px;line-height:2.1;color:#7a9a7a;width:100%;
+border-left:2px solid #2a4a2a;padding-left:16px;font-style:italic;text-align:left;
+}
+.d-divider{width:40px;height:1px;background:#2a3a2a;margin:8px 0;}
+
+.d-stat-box{
+background:rgba(139,26,26,.05);border:1px solid rgba(139,26,26,.15);
+border-radius:12px;padding:16px 20px;width:100%;text-align:left;
+}
+#sSurvive .d-stat-box{background:rgba(40,100,40,.04);border:1px solid rgba(40,100,40,.12);}
+.d-stat-label{font-size:9px;letter-spacing:3px;color:#8a4a4a;text-transform:uppercase;margin-bottom:8px;}
+#sSurvive .d-stat-label{color:#4a7a4a;}
+.d-stat-line{font-size:13px;color:#9a8a8a;line-height:1.8;word-break:keep-all;}
+
+.d-msg, .sv-but{
+font-size:13px;line-height:1.9;color:#6a8a6a;text-align:left;width:100%;word-break:keep-all;
+}
+
+.d-btns{display:flex;gap:12px;width:100%;justify-content:center;margin-top:8px;}
+.btn-ghost{background:transparent;border:1px solid #3a4a3a;border-radius:10px;flex:1;
+padding:12px;font-size:14px;color:#5a7a5a;cursor:pointer;font-family:inherit;transition:all .2s;}
+.btn-ghost:hover{border-color:#5a7a5a;color:#7a9a7a;}
+.btn-main{background:#0a1a0a;border:1px solid #3a6a3a;border-radius:10px;flex:1;
+padding:12px;font-size:14px;font-weight:700;color:#a0c8a0;
+cursor:pointer;font-family:inherit;transition:all .2s;}
+.btn-main:hover{background:#142814;}
+</style>
+</head>
+<body>
+
+<!-- ══ TITLE ══ -->
+<div id="sTitle" class="screen on">
+  <div class="title-tiny">오늘 밤</div>
+  <div class="title-big">집으로<br><em>돌아가는 길</em></div>
+  <div class="title-desc">
+    눈이 아니어도 괜찮다<br>
+    감각이 이끄는 대로<br>
+    그냥 집으로 돌아가면 된다
+  </div>
+  <div class="title-cta">화면을 터치해 시작</div>
+</div>
+
+<!-- ══ GAME ══ -->
+<div id="sGame" class="screen">
+  <canvas id="cv"></canvas>
+  <div id="hud">
+    <div id="hudLeft">오늘 밤, 집으로</div>
+    <div id="liveDots">
+      <div class="ldot"></div><div class="ldot"></div><div class="ldot"></div>
+    </div>
+    <div id="hudRight">× 0</div>
+  </div>
+  <div id="senseBox">
+    <div class="sb"><div class="sl">청각</div><div class="st"><div class="sf" id="sfH" style="width:0"></div></div></div>
+    <div class="sb"><div class="sl">후각</div><div class="st"><div class="sf" id="sfS" style="width:0"></div></div></div>
+    <div class="sb"><div class="sl">진동</div><div class="st"><div class="sf" id="sfV" style="width:0"></div></div></div>
+  </div>
+  <div id="dpad">
+    <div class="db" id="dU">▲</div>
+    <div class="db" id="dL">◀</div>
+    <div class="db" id="dD">▼</div>
+    <div class="db" id="dR">▶</div>
+  </div>
+  <div id="flash"></div>
+</div>
+
+<!-- ══ DEATH ══ -->
+<div id="sDeath" class="screen"></div>
+
+<!-- ══ SURVIVE ══ -->
+<div id="sSurvive" class="screen"></div>
+
+<script>
+const ANIMALS = [
+  { n:'고라니', e:'🦌', sp:2.1, si:0.5, he:0.9, sm:0.7,
+    cause:'헤드라이트 앞에서 굳어버렸다',
+    poem:"헤드라이트가 달처럼 다가왔다\n나는 달인 줄 알았다\n멈춰 서서 바라보았다\n그것이 마지막이었다.",
+    msg:"고라니는 헤드라이트 앞에서 굳어버리는 습성이 있습니다.\n밤길에 동물이 보이면 경적 대신 라이트를 깜빡여 주세요.",
+    stat:"고라니는 국내 로드킬 피해 1위 동물입니다.\n환경부 조사에 따르면 연간 로드킬 건수의 약 30%를 고라니가 차지합니다." },
+  { n:'너구리', e:'🦝', sp:1.7, si:0.4, he:0.75, sm:0.95,
+    cause:'먹이 냄새를 따라가다 변을 당했다',
+    poem:"냄새로 지도를 그렸다\n이 길은 안전하다 믿었다\n어젯밤도, 그제도 건뜄으니까\n오늘 밤은 달랐다.",
+    msg:"너구리는 먹이를 찾아 도로 근처에 자주 출몰합니다.\n도로변 음식물 쓰레기 투기는 동물을 위험으로 유인합니다.",
+    stat:"환경부 국립생태원 자료에 따르면 너구리는 전체 로드킬 포유류 중 두 번째로 많은 피해를 입습니다.\n특히 먹이가 부족한 겨울철에 집중됩니다." },
+  { n:'삵', e:'🐱', sp:3.0, si:0.65, he:0.95, sm:0.6,
+    cause:'시야 밖에서 차가 왔다',
+    poem:"나는 이 산의 가장 빠른 발을 가졌다\n그래도 모자랐다\n0.3초\n그 차이로 세상이 끝났다.",
+    msg:"삵은 멸종위기 야생동물 2급입니다.\n한국 전역에 수백 마리만 남은 이 고양이과 동물이 매년 로드킬로 희생됩니다.",
+    stat:"국립생태원에 따르면 삵의 로드킬 사례는 서식 밀도에 비해 지나치게 높습니다.\n생태통로가 없는 도로 구간에서 집중 발생합니다." },
+  { n:'두꺼비', e:'🐸', sp:0.85, si:0.45, he:0.35, sm:0.4,
+    cause:'봄 산란기 이동 중 변을 당했다',
+    poem:"봄비가 왔다\n알을 낳으러 연못으로 가야 했다\n매년 이 길을 건뜄다\n올해 가 마지막인 줄 몰랐다.",
+    msg:"두꺼비는 봄 산란기(3~4월)에 수백 마리가 함께 이동합니다.\n이 짧은 시기에 한 도로에서만 수십 마리가 희생되기도 합니다.",
+    stat:"지자체 조사에서 두꺼비 이동 시기에 특정 구간 로드킬이 집중 발생하는 것이 확인됐습니다.\n계절별 감속구간 지정이 시급합니다." },
+  { n:'고슴도치', e:'🦔', sp:1.2, si:0.5, he:0.6, sm:0.8,
+    cause:'몸을 웅크렸지만 차는 피하지 않았다',
+    poem:"위험이 오면 몸을 둥글게 말았다\n늘 그렇게 살아남았다\n오늘 밤 그 본능이\n나를 배신했다.",
+    msg:"고슴도치는 위협을 느끼면 가시를 세우고 웅크립니다.\n차 앞에서도 같은 반응을 보이기 때문에 위험합니다.",
+    stat:"국내 야생 고슴도치는 도심 외곽과 농촌 지역에 서식하며 피해가 꾸준히 보고됩니다.\n야간 도로에서 특히 취약합니다." },
+];
+
+const SURVIVE_POEMS = [
+  "기기묘묘한 어둠 속에서\n결국 발걸음이 무사히 닿았다.\n살아서 숲으로 돌아왔다.",
+  "두려움이 나를 구했다\n감각이 나를 이끌었다\n이번엔 살았다.",
+];
+
+const NATIONAL_STAT = "국토교통부·환경부 통계에 따르면 국내에서 연간 약 2만~5만 건의 로드킬이 공식 집계됩니다.\n신고되지 않은 건수를 포함하면 실제 피해는 훨씬 많습니다.\n\n도로 위에서 사라지는 것은 숫자가 아닙니다.";
+const REQ_CROSSES = 5; 
+
+let gs=null, raf=null, keys={};
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+}
+function goTitle(){cancelAnimationFrame(raf);show('sTitle');}
+
+const CV=document.getElementById('cv');
+const CTX=CV.getContext('2d');
+
+function startGame(){
+  CV.width=window.innerWidth;
+  CV.height=window.innerHeight;
+  const W=CV.width,H=CV.height;
+  const RT=Math.round(H*.32), RB=Math.round(H*.60);
+  const LANES=4, LH=(RB-RT)/LANES;
+
+  const animal=ANIMALS[Math.floor(Math.random()*ANIMALS.length)];
+
+  gs={
+    animal, W, H, RT, RB, LH,
+    px:W/2, py:RB+H*.1,
+    vx:0, vy:0,
+    lives:3, crosses:0,
+    t0:Date.now(),
+    phase:'bottom',
+    paused:false,
+    invTimer:0,
+    hitFlash:0, safeGlow:0,
+    cars:[], spawnT:0,
+    pulses:[],
+    particles:[],
+    sense:{h:0,s:0,v:0},
+    tick:0,
+    darkAmt:0.2,
+    dead:false,
+  };
+
+  updateLiveDots();
+  document.getElementById('hudRight').textContent='× 0';
+  keys={};
+  show('sGame');
+  cancelAnimationFrame(raf);
+  raf=requestAnimationFrame(loop);
+}
+
+function loop(){
+  update();
+  draw();
+  if(gs && !gs.dead) {
+    raf=requestAnimationFrame(loop);
+  }
+}
+
+function update(){
+  if(!gs||gs.dead)return;
+  const{animal:a,W,H,RT,RB}=gs;
+  gs.tick++;
+
+  gs.darkAmt=Math.min(0.96, gs.darkAmt + 0.00008 + gs.crosses*0.00005);
+
+  if(gs.hitFlash>0)gs.hitFlash--;
+  if(gs.safeGlow>0)gs.safeGlow--;
+  if(gs.invTimer>0)gs.invTimer--;
+
+  if(gs.paused)return;
+
+  gs.spawnT++;
+  const diff=1+gs.crosses*0.18;
+  const iv=Math.max(18, 45-gs.crosses*4);
+  if(gs.spawnT>=iv){gs.spawnT=0;spawnCar(diff);}
+
+  for(let i=gs.cars.length-1; i>=0; i--){
+    const c=gs.cars[i];
+    c.x+=c.vx;
+    if(gs.tick%24===i%24){
+      gs.pulses.push({x:c.x,y:c.y,r:4,maxR:Math.max(W,H)*.65,alpha:.55,spd:4.5});
+    }
+    if(c.x>W+150||c.x<-150)gs.cars.splice(i,1);
+  }
+
+  for(let i=gs.pulses.length-1; i>=0; i--){
+    const p=gs.pulses[i];
+    p.r+=p.spd;
+    p.alpha=.55*(1-p.r/p.maxR);
+    if(p.r>=p.maxR)gs.pulses.splice(i,1);
+  }
+
+  const sp=a.sp;
+  if(keys['ArrowLeft']||keys['mL']) gs.vx-=sp*.45;
+  else if(keys['ArrowRight']||keys['mR']) gs.vx+=sp*.45;
+  else gs.vx*=.70;
+  
+  if(keys['ArrowUp']||keys['mU']) gs.vy-=sp*.50;
+  else if(keys['ArrowDown']||keys['mD']) gs.vy+=sp*.50; 
+  else gs.vy*=.70;
+  
+  gs.vx=Math.max(-sp,Math.min(sp,gs.vx));
+  gs.vy=Math.max(-sp,Math.min(sp,gs.vy));
+  gs.px+=gs.vx; gs.py+=gs.vy;
+  
+  gs.px=Math.max(14,Math.min(W-14,gs.px));
+  gs.py=Math.max(14,Math.min(H-14,gs.py));
+
+  if((gs.phase==='bottom'||gs.phase==='returning')&&gs.vy<0&&gs.py<RB+6)
+    gs.phase='crossing';
+    
+  if(gs.phase==='crossing'&&gs.py<RT-12){
+    gs.phase='top';
+    gs.crosses++;
+    document.getElementById('hudRight').textContent='× '+gs.crosses;
+    
+    if(gs.crosses >= REQ_CROSSES) {
+      cancelAnimationFrame(raf);
+      setTimeout(()=>showSurvive(), 400);
+      return;
+    }
+    
+    gs.safeGlow=60;
+    gs.darkAmt=Math.max(0.15, gs.darkAmt-.12);
+    addPart(gs.px,gs.py,'#406040',14);
+    setTimeout(()=>{if(gs&&gs.phase==='top'){gs.phase='returning';}},800);
+  }
+  if(gs.phase==='returning'&&gs.py>RB+H*.05)
+    gs.phase='bottom';
+
+  if(gs.phase==='crossing' && gs.invTimer===0){
+    for(const c of gs.cars){
+      if(Math.abs(c.x-gs.px)<c.hw+10&&Math.abs(c.y-gs.py)<c.hh+8){
+        hitPlayer(c);break;
+      }
+    }
+  }
+
+  updateSense();
+
+  for(let i=gs.particles.length-1; i>=0; i--){
+    const p=gs.particles[i];
+    p.x+=p.vx;p.y+=p.vy;p.vy+=.07;p.life--;
+    if(p.life<=0)gs.particles.splice(i,1);
+  }
+}
+
+function spawnCar(diff){
+  const{RT,RB,LH,W}=gs;
+  const lane=Math.floor(Math.random()*4);
+  const y=RT+LH*lane+LH/2;
+  const right=Math.random()>.5;
+  const spd=(2.4+Math.random()*2.8)*diff*(right?1:-1);
+  const w=50+Math.random()*30,h=20;
+  gs.cars.push({x:right?-90:W+90,y,vx:spd,hw:w/2,hh:h/2,w,h,hl:Math.random()>.15});
+}
+
+function hitPlayer(car){
+  gs.lives--;
+  gs.hitFlash=25;
+  gs.invTimer=55;
+  addPart(gs.px,gs.py,'#6a1a1a',18);
+  updateLiveDots();
+
+  if(gs.lives<=0){
+    gs.dead=true;
+    const fl=document.getElementById('flash');
+    fl.style.transition='none';
+    fl.style.background='#fff';fl.style.opacity='1';
+    setTimeout(()=>{fl.style.transition='opacity .4s';fl.style.opacity='0';},160);
+    cancelAnimationFrame(raf);
+    setTimeout(()=>showDeath(),800);
+  } else {
+    gs.py=gs.RB+gs.H*.1;
+    gs.phase='bottom';gs.vy=0;
+  }
+}
+
+function updateSense(){
+  const{animal:a,px,py,cars,W,H,RT,RB}=gs;
+  
+  let minD = Math.hypot(W,H);
+  let horizMinD = W; 
+  
+  for(const c of cars){
+    const d = Math.hypot(c.x-px,c.y-py);
+    if(d < minD) minD = d;
+    
+    const hDist = Math.abs(c.x - px);
+    if(hDist < horizMinD) horizMinD = hDist;
+  }
+  
+  const hT = horizMinD < 420*a.he ? (1 - horizMinD/(420*a.he)) * a.he : 0;
+  const sT = minD < 220*a.sm ? Math.pow(1 - minD/(220*a.sm), 1.3) * a.sm : 0;
+  const isOnRoad = (py >= RT && py <= RB);
+  const vT = (isOnRoad && minD < 180) ? (1 - minD/180) : 0;
+  
+  gs.sense.h += (hT - gs.sense.h) * .12;
+  gs.sense.s += (sT - gs.sense.s) * .08;
+  gs.sense.v += (vT - gs.sense.v) * .25;
+  
+  const pct = v => Math.round(Math.min(1,v)*100)+'%';
+  document.getElementById('sfH').style.width=pct(gs.sense.h);
+  document.getElementById('sfS').style.width=pct(gs.sense.s);
+  document.getElementById('sfV').style.width=pct(gs.sense.v);
+  
+  document.getElementById('sfH').style.background=gs.sense.h>.7?'#8a4a10':'#5a4010';
+  document.getElementById('sfS').style.background=gs.sense.s>.7?'#6a2a8a':'#3a1a5a';
+  document.getElementById('sfV').style.background=gs.sense.v>.6?'#8a1a1a':'#103a5a';
+}
+
+function addPart(x,y,color,n){
+  for(let i=0; i<n; i++){
+    const a=Math.random()*Math.PI*2,s=Math.random()*3+.5;
+    gs.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,color,life:24+Math.random()*14,r:Math.random()*2+.5});
+  }
+}
+
+function updateLiveDots(){
+  const dots=document.querySelectorAll('.ldot');
+  dots.forEach((d,i)=>d.classList.toggle('gone',i>=gs.lives));
+}
+
+function draw(){
+  if(!gs)return;
+  const{W,H,RT,RB,LH,px,py,darkAmt,tick}=gs;
+  CTX.clearRect(0,0,W,H);
+
+  const sky=CTX.createLinearGradient(0,0,0,RT);
+  sky.addColorStop(0,'#02060a');sky.addColorStop(1,'#05100a');
+  CTX.fillStyle=sky;CTX.fillRect(0,0,W,RT);
+
+  for(let i=0; i<24; i++){
+    const sx=(i*157.3)%W, sy=(i*61.7)%(RT-10)+5;
+    const tw=.3+.5*Math.abs(Math.sin(tick*.012+i*.7));
+    CTX.globalAlpha=tw*.5;
+    CTX.fillStyle='#fff';
+    CTX.fillRect(sx,sy,1.2,1.2);
+  }
+  CTX.globalAlpha=1;
+
+  drawForest(CTX,0,RT,W,false);
+
+  CTX.fillStyle='#141414';CTX.fillRect(0,RT,W,RB-RT);
+  CTX.setLineDash([14,13]);CTX.lineWidth=1;CTX.strokeStyle='rgba(200,150,30,.15)';
+  for(let i=1; i<4; i++){
+    const y=RT+LH*i;
+    CTX.beginPath();CTX.moveTo(0,y);CTX.lineTo(W,y);CTX.stroke();
+  }
+  CTX.setLineDash([]);
+  CTX.strokeStyle='rgba(255,255,255,.15)';CTX.lineWidth=1.5;
+  CTX.beginPath();CTX.moveTo(0,RT);CTX.lineTo(W,RT);CTX.stroke();
+  CTX.beginPath();CTX.moveTo(0,RB);CTX.lineTo(W,RB);CTX.stroke();
+
+  const bg=CTX.createLinearGradient(0,RB,0,H);
+  bg.addColorStop(0,'#0e1e0e');bg.addColorStop(1,'#060e06');
+  CTX.fillStyle=bg;CTX.fillRect(0,RB,W,H-RB);
+  drawForest(CTX,0,RB,W,true);
+
+  for(const p of gs.pulses){
+    CTX.globalAlpha=p.alpha*.65;
+    CTX.strokeStyle='#c8820a';
+    CTX.lineWidth=1;
+    CTX.beginPath();CTX.arc(p.x,p.y,p.r,0,Math.PI*2);CTX.stroke();
+  }
+  CTX.globalAlpha=1;
+
+  gs.cars.forEach(c=>drawCar(CTX,c));
+
+  gs.particles.forEach(p=>{
+    CTX.globalAlpha=p.life/40;
+    CTX.fillStyle=p.color;
+    CTX.beginPath();CTX.arc(p.x,p.y,p.r,0,Math.PI*2);CTX.fill();
+  });
+  CTX.globalAlpha=1;
+
+  const visR=Math.max(40, 70+gs.animal.si*110-darkAmt*65);
+  const fog=CTX.createRadialGradient(px,py,visR*.3,px,py,visR);
+  fog.addColorStop(0,`rgba(0,0,0,${darkAmt*.15})`);
+  fog.addColorStop(.6,`rgba(0,0,0,${darkAmt*.75})`);
+  fog.addColorStop(1,`rgba(0,0,0,${Math.min(.98,darkAmt+.05)})`);
+  CTX.fillStyle=fog;CTX.fillRect(0,0,W,H);
+
+  CTX.save();
+  CTX.fillStyle=`rgba(0,0,0,${Math.min(.99,darkAmt+.06)})`;
+  CTX.beginPath();
+  CTX.rect(0,0,W,H);
+  CTX.arc(px,py,visR,0,Math.PI*2,true);
+  CTX.fill('evenodd');
+  CTX.restore();
+
+  const sv=gs.sense.v;
+  if(sv>0.05){
+    const ag=CTX.createRadialGradient(px,py,2,px,py,20+sv*55);
+    ag.addColorStop(0,`rgba(90,150,200,${sv*.25})`);
+    ag.addColorStop(1,'transparent');
+    CTX.fillStyle=ag;CTX.beginPath();CTX.arc(px,py,20+sv*55,0,Math.PI*2);CTX.fill();
+  }
+
+  drawPlayerDot(CTX,px,py);
+
+  if(gs.hitFlash>0){CTX.fillStyle=`rgba(180,0,0,${gs.hitFlash/25*.45})`;CTX.fillRect(0,0,W,H);}
+  if(gs.safeGlow>0){CTX.fillStyle=`rgba(40,80,40,${gs.safeGlow/60*.2})`;CTX.fillRect(0,0,W,H);}
+}
+
+function drawForest(ctx,x,y,w,below){
+  const cols=['#080f08','#0e1a0e','#0a140a','#101808'];
+  const n=Math.ceil(w/16)+2;
+  for(let i=0; i<n; i++){
+    const tx=x+i*16+4;
+    const th=24+Math.sin(i*2.1+(below?3.5:0))*8;
+    const ty=below?y:y-th;
+    ctx.fillStyle=cols[i%4];
+    ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(tx-7,ty+th);ctx.lineTo(tx+7,ty+th);ctx.closePath();ctx.fill();
+  }
+}
+
+function drawCar(ctx,c){
+  ctx.save();ctx.translate(c.x,c.y);
+  ctx.fillStyle='rgba(25,25,25,.95)';
+  ctx.beginPath();ctx.roundRect(-c.hw,-c.hh,c.w,c.h,4);ctx.fill();
+  if(c.hl){
+    const hx=c.vx>0?c.hw:-c.hw;
+    const dir=c.vx>0?1:-1;
+    const gd=ctx.createRadialGradient(hx+dir*25,0,1,hx+dir*25,0,90);
+    gd.addColorStop(0,'rgba(255,240,170,.75)');
+    gd.addColorStop(.4,'rgba(255,220,110,.25)');
+    gd.addColorStop(1,'transparent');
+    ctx.fillStyle=gd;ctx.beginPath();ctx.arc(hx+dir*25,0,90,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawPlayerDot(ctx,x,y){
+  if(gs.invTimer>0&&Math.floor(gs.invTimer/5)%2===0)return;
+  ctx.save();ctx.translate(x,y);
+  ctx.fillStyle='rgba(0,0,0,.3)';
+  ctx.beginPath();ctx.ellipse(0,5,6,2,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(210,230,200,.95)';
+  ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+function showDeath(){
+  const a=gs.animal;
+  document.getElementById('sDeath').innerHTML=`
+  <div class="death-reveal">
+    <div class="d-label">지금까지 당신이 하던 게임</div>
+    <div class="d-title-roadkill">로드킬</div>
+    <div class="d-animal-reveal">
+      <div class="d-animal-em">${a.e}</div>
+      <div class="d-animal-info">
+        <div class="d-animal-name">${a.n}</div>
+        <div class="d-animal-cause">${a.cause}</div>
+      </div>
+    </div>
+    <div class="d-poem">${a.poem.replace(/\n/g,'<br>')}</div>
+    <div class="d-divider"></div>
+    <div class="d-stat-box">
+      <div class="d-stat-label">실제 기록</div>
+      <div class="d-stat-line">${a.stat.replace(/\n/g,'<br>')}</div>
+    </div>
+    <div class="d-stat-box">
+      <div class="d-stat-label">국내 전체</div>
+      <div class="d-stat-line">${NATIONAL_STAT.replace(/\n/g,'<br>')}</div>
+    </div>
+    <div class="d-msg">${a.msg.replace(/\n/g,'<br>')}</div>
+    <div class="d-btns">
+      <button class="btn-ghost" onclick="goTitle()">처음으로</button>
+      <button class="btn-main" onclick="startGame()">다시 건너기</button>
+    </div>
+  </div>`;
+  show('sDeath');
+}
+
+function showSurvive(){
+  const a=gs.animal;
+  document.getElementById('sSurvive').innerHTML=`
+  <div class="sv-reveal">
+    <div class="sv-label">오늘 밤</div>
+    <div class="sv-title"><em>집으로</em><br>돌아왔다</div>
+    <div class="sv-reveal-box">
+      <div class="d-animal-em">${a.e}</div>
+      <div class="d-animal-info">
+        <div class="d-animal-name">${a.n}의 여정 성공</div>
+        <div class="d-animal-cause">인간의 도로를 무사히 돌파했습니다.</div>
+      </div>
+    </div>
+    <div class="sv-poem">${SURVIVE_POEMS[Math.floor(Math.random()*SURVIVE_POEMS.length)].replace(/\n/g,'<br>')}</div>
+    <div class="d-divider"></div>
+    <div class="sv-but">
+      축하합니다. 하지만 오늘 밤, 이 순간에도<br>
+      실제 도로 위 수많은 생명들은<br>
+      <strong style="color:#a0c8a0">끝내 집으로 돌아가지 못했습니다.</strong>
+    </div>
+    <div class="d-stat-box">
+      <div class="d-stat-label">국내 로드킬 현황</div>
+      <div class="d-stat-line">${NATIONAL_STAT.replace(/\n/g,'<br>')}</div>
+    </div>
+    <div class="d-btns">
+      <button class="btn-ghost" onclick="goTitle()">처음으로</button>
+      <button class="btn-main" onclick="startGame()">다시 도전하기</button>
+    </div>
+  </div>`;
+  show('sSurvive');
+}
+
+document.addEventListener('keydown',e=>{
+  keys[e.key]=true;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
+});
+document.addEventListener('keyup',e=>keys[e.key]=false);
+
+const mapBtn = (id, key) => {
+  const el = document.getElementById(id);
+  const start = (e) => { e.preventDefault(); keys[key] = true; };
+  const end = (e) => { e.preventDefault(); keys[key] = false; };
+  el.addEventListener('touchstart', start, {passive: false});
+  el.addEventListener('touchend', end, {passive: false});
+  el.addEventListener('mousedown', () => keys[key] = true);
+  el.addEventListener('mouseup', () => keys[key] = false);
+  el.addEventListener('mouseleave', () => keys[key] = false);
+};
+mapBtn('dL', 'mL'); mapBtn('dU', 'mU'); mapBtn('dR', 'mR'); mapBtn('dD', 'mD'); 
+
+document.getElementById('sTitle').addEventListener('click',startGame);
+
+window.addEventListener('resize',()=>{
+  if(!gs)return;
+  CV.width=window.innerWidth;CV.height=window.innerHeight;
+  gs.W=CV.width;gs.H=CV.height;
+  gs.RT=Math.round(gs.H*.32);gs.RB=Math.round(gs.H*.60);gs.LH=(gs.RB-gs.RT)/4;
+});
+</script>
+</body>
+</html>
